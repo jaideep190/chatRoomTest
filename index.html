@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebSocket Chat with Username & Timestamp</title>
+</head>
+<body>
+  <h2>WebSocket Chat</h2>
+
+  <div id="usernamePrompt" style="display:none;">
+    <input type="text" id="usernameInput" placeholder="Enter your username" />
+    <button onclick="setUsername()">Join Chat</button>
+  </div>
+
+  <div id="chatArea" style="display:none;">
+    <ul id="messages"></ul>
+    <input id="msg" type="text" placeholder="Type a message..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    let username = localStorage.getItem('username') || null;
+    let socket = null;
+
+    function initChat() {
+      document.getElementById('usernamePrompt').style.display = 'none';
+      document.getElementById('chatArea').style.display = 'block';
+
+      socket = new WebSocket("ws://localhost:3000");
+
+      socket.onmessage = function(event) {
+        const data = typeof event.data === "string" ? event.data : "";
+        const li = document.createElement("li");
+        li.textContent = data;
+        document.getElementById("messages").appendChild(li);
+      };
+
+      socket.onopen = function() {
+        console.log('Connected to chat server');
+      };
+
+      socket.onerror = function(error) {
+        console.error('WebSocket error:', error);
+      };
+    }
+
+    function setUsername() {
+      const input = document.getElementById('usernameInput');
+      if (input.value.trim() === '') {
+        alert('Please enter a username');
+        return;
+      }
+      username = input.value.trim();
+      localStorage.setItem('username', username);
+      initChat();
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('msg');
+      if (!input.value.trim()) return;
+
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString();
+      const message = `[${timestamp}] ${username}: ${input.value.trim()}`;
+
+      socket.send(message);
+      input.value = '';
+    }
+
+    // On page load
+    window.onload = function() {
+      if (username) {
+        initChat();
+      } else {
+        document.getElementById('usernamePrompt').style.display = 'block';
+      }
+    };
+  </script>
+</body>
+</html>
