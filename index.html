@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>WebSocket Chat with Username & Timestamp</title>
+  <title>WebSocket Chat</title>
 </head>
 <body>
   <h2>WebSocket Chat</h2>
@@ -12,61 +12,65 @@
   </div>
 
   <div id="chatArea" style="display:none;">
-    <ul id="messages"></ul>
+    <ul id="messages" style="list-style:none; padding:0;"></ul>
     <input id="msg" type="text" placeholder="Type a message..." />
-    <button onclick="sendMessage()">Send</button>
+    <button id="sendBtn" onclick="sendMessage()" disabled>Send</button>
   </div>
 
   <script>
-    let username = localStorage.getItem('username') || null;
+    let username = localStorage.getItem('username');
     let socket = null;
 
     function initChat() {
       document.getElementById('usernamePrompt').style.display = 'none';
       document.getElementById('chatArea').style.display = 'block';
 
-      socket = new WebSocket("ws://localhost:3000");
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      socket = new WebSocket(`${protocol}//${window.location.host}`);
+
+      socket.onopen = () => {
+        console.log('WebSocket connected');
+        document.getElementById('sendBtn').disabled = false;
+      };
 
       socket.onmessage = function(event) {
-        const data = typeof event.data === "string" ? event.data : "";
+        const data = typeof event.data === 'string' ? event.data : '';
         const li = document.createElement("li");
         li.textContent = data;
         document.getElementById("messages").appendChild(li);
       };
 
-      socket.onopen = function() {
-        console.log('Connected to chat server');
-      };
-
-      socket.onerror = function(error) {
-        console.error('WebSocket error:', error);
-      };
+      socket.onerror = (err) => console.error('WebSocket error:', err);
     }
 
     function setUsername() {
       const input = document.getElementById('usernameInput');
-      if (input.value.trim() === '') {
-        alert('Please enter a username');
+      const name = input.value.trim();
+      if (name === '') {
+        alert('Please enter a valid username.');
         return;
       }
-      username = input.value.trim();
-      localStorage.setItem('username', username);
+      localStorage.setItem('username', name);
+      username = name;
       initChat();
     }
 
     function sendMessage() {
       const input = document.getElementById('msg');
-      if (!input.value.trim()) return;
+      const text = input.value.trim();
+      if (!text) return;
 
-      const now = new Date();
-      const timestamp = now.toLocaleTimeString();
-      const message = `[${timestamp}] ${username}: ${input.value.trim()}`;
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        alert('WebSocket not connected. Please wait...');
+        return;
+      }
 
-      socket.send(message);
+      const time = new Date().toLocaleTimeString();
+      const formattedMessage = `[${time}] ${username}: ${text}`;
+      socket.send(formattedMessage);
       input.value = '';
     }
 
-    // On page load
     window.onload = function() {
       if (username) {
         initChat();

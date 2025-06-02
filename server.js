@@ -3,30 +3,31 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+const PORT = process.env.PORT || 3000;
 const HISTORY_FILE = path.join(__dirname, 'chat_history.txt');
 
 let messageHistory = [];
 
-// Load chat history from file at startup
-try {
-  if (fs.existsSync(HISTORY_FILE)) {
+// Load existing chat history from file
+if (fs.existsSync(HISTORY_FILE)) {
+  try {
     const data = fs.readFileSync(HISTORY_FILE, 'utf8');
     if (data) {
-      // Each line is one message
       messageHistory = data.split('\n').filter(line => line.trim() !== '');
     }
+  } catch (err) {
+    console.error('Error reading chat history:', err);
   }
-} catch (err) {
-  console.error('Error loading chat history:', err);
 }
 
 const server = http.createServer((req, res) => {
+  // Serve index.html
   fs.readFile('index.html', (err, data) => {
     if (err) {
       res.writeHead(500);
       return res.end('Error loading index.html');
     }
-    res.writeHead(200);
+    res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end(data);
   });
 });
@@ -34,19 +35,18 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
-  // Send chat history to new client
+  // Send chat history
   messageHistory.forEach(msg => ws.send(msg));
 
   ws.on('message', (message) => {
     const msgStr = message.toString();
     messageHistory.push(msgStr);
 
-    // Append message to file asynchronously
     fs.appendFile(HISTORY_FILE, msgStr + '\n', (err) => {
-      if (err) console.error('Error saving message:', err);
+      if (err) console.error('Failed to save message:', err);
     });
 
-    // Broadcast message to all clients
+    // Broadcast to all connected clients
     wss.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(msgStr);
@@ -55,6 +55,6 @@ wss.on('connection', (ws) => {
   });
 });
 
-server.listen(3000, () => {
-  console.log('Server running at http://localhost:3000');
+server.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
 });
